@@ -1,0 +1,88 @@
+@using Microsoft.AspNetCore.Html
+@using CurrencyRateApp.Data
+@using System.Globalization
+
+@model RatesViewModel
+@{
+    ViewData["Title"] = "Курсы валют";
+}
+<script src="/lib/jquery/dist/jquery.min.js"></script>
+
+<div class="text-center">
+    <div class="row">
+        <div class="col-md-1">
+            <h4>Курсы валют</h4>
+        </div>
+        <div class="col-md-8"><h5>@Model.Date.ToLongDateString()</h5>
+            <div class="d-flex flex-wrap p-3">
+            <!-- Для каждой валюты блок с названием и курсом. -->
+            @foreach (var item in Model.Rates)
+            {
+                <div class="p-2 m-2 rounded" style="display:none; border:1px solid #aaaaaa;" id="@item.Currency.Code">
+                    @item.Currency.Name<br>@item.Currency.Nominal<hr>@item.Rate &#8381;
+                </div>
+            }
+            </div>
+        </div>
+        <div class="col-md-3 text-left">
+            <form action="Rates" method="post">
+                <div class="form-group">
+                    <label for="date">Дата:</label>
+                    <!-- Элемент ввода даты. Тип элемента ввода text, а не date из соображений удобства использования -->
+                    <input type="text" class="form-control" id="date" name="date" placeholder="дд.мм.гггг" value='@Model.Date.ToString("d")'>
+                    <!-- Скрытый элемент ввода. При отправке содержит разделённые запятыми коды валют, для которых отображается курс. -->
+                    <input type="text" style="display:none" id="visible" name="visible">
+                </div>
+                <div class="text-right">
+                    <button type="submit" class="btn btn-primary" id="submit">OK</button>
+                </div>
+            </form>
+            <script>
+                // По окончании загрузки страницы
+                $(document).ready(function(){
+
+                    // На кнопку OK установить обработчик, собирающий коды выбранных для отображения валют в одну строку,
+                    // которая присваивается скрытому элементу ввода.
+                    $("button#submit").click(function(){
+                        var visibles = $("input.currency").filter(function(index, element){
+                            return element.checked;
+                        }).map(function(index, element){
+                            return element.id;
+                        }).toArray().join();
+                        $("input#visible")[0].value = visibles;
+                    });
+
+                    // Показать блок с курсом валюты, если соответствующий флаг установлен.
+                    // Выполняется при загрузке страницы.
+                    $("input.currency").map(function(index, element){
+                        $("div#" + element.id).toggle(element.checked);
+                    });
+
+                    // Показать или спрятать блок с курсом валюты в зависимости от состояния флага.
+                    // Выполняется при изменении состояния флага.
+                    $("input.currency").change(function(){
+                        $("div#" + this.id).toggle(this.checked);
+                    });
+                });
+            </script>
+            <hr>
+            <h5>Валюты</h5>
+            <!-- Список валют, которые можно отметить для отображения курса. -->
+            @foreach (var item in Model.Rates)
+            {
+                <div class="form-check text-left">
+                    <label class="form-check-label">
+                        @if (Model.VisibleCurrencies.Contains(item.Currency.Code))
+                        {
+                            <input type="checkbox" class="form-check-input currency" id="@item.Currency.Code" checked>@item.Currency.Name
+                        }
+                        else
+                        {
+                            <input type="checkbox" class="form-check-input currency" id="@item.Currency.Code">@item.Currency.Name
+                        }
+                    </label>
+                </div>
+            }
+        </div>
+    </div>
+</div>

@@ -1,0 +1,147 @@
+@using Microsoft.AspNetCore.Html
+@using CurrencyRateApp.Data
+@using System.Globalization
+
+@model DynamicViewModel
+@{
+    ViewData["Title"] = "Динамика курса";
+}
+<script src="/lib/jquery/dist/jquery.min.js"></script>
+
+<div class="text-center">
+    <h4>Динамика курса</h4>
+    <div class="row">
+        @{
+            // Ежедневные курсы валюты.
+            var ratesDynamic = @Model.RatesDynamic;
+            // Метки дат для графика chart.js.
+            var ratesLabels = 
+                ratesDynamic.Any()
+                    ? ratesDynamic.Select(item => item.Date.ToString("d"))
+                                  .Aggregate((s1, s2) => s1 + ", " + s2)
+                    : "";
+            // Ежедневные курсы в виде массива JavaScript.
+            var ratesDynamicAsString =
+                ratesDynamic.Any()
+                    ? ratesDynamic.Select(item => item.Rate.ToString(CultureInfo.InvariantCulture.NumberFormat))
+                                  .Aggregate((s1, s2) => s1 + ", " + s2)
+                    : "";
+
+            <div class="col-md-3">
+                @if (Model.Currency != null)
+                {
+                    <!-- Таблица с ежедневными курсами. -->
+                    <table class="table table-bordered table-striped">
+                        <thead>
+                            @if (Model.Currency.Nominal == 1)
+                            {
+                                <tr><td colspan="2"><strong>@Model.Currency.Name</strong></td></tr>
+                            }
+                            else
+                            {
+                                <tr><td colspan="2"><strong>@Model.Currency.Name / @Model.Currency.Nominal</strong></td></tr>
+                            }
+                            <tr><td><strong>Дата</strong></td><td><strong>Курс</strong></td></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in ratesDynamic)
+                            {
+                                <tr>
+                                    <td class="label">@item.Date.ToString("d")</td>
+                                    <td class="data">@item.Rate.ToString()</td>
+                                </tr>
+                            }
+                            </tbody>
+                    </table>
+                }
+            </div>
+            <div class="col-md-6">
+                <!-- График изменения курса. Упрощёный, нарисованный вручную. -->
+                <div><canvas id="myCanvas" style="width: 100%; border:1px solid #dddddd;"></canvas></div>
+                <!-- График изменения курса. Продвинутый, нарисованный с помощью библиотеки Chart.js. -->
+                <div><canvas id="myChart" style="width: 100%; border:1px solid #dddddd;"></canvas></div>
+                <script>
+                    var c = document.getElementById("myCanvas");
+                    var data = [@ratesDynamicAsString];
+                    var hstep = (c.width - 20) / (data.length - 1); // «масштаб» по оси дат (X)
+                    var min = data[0];
+                    var max = data[0];
+                    data.forEach(function(item, index, array) {
+                        if (item < min)
+                            min = item;
+                        if (item > max)
+                            max = item;
+                    });
+                    var vscale = (c.height - 20) / (max - min); // масштаб по оси курсов (Y)
+
+                    var ctx = c.getContext("2d");
+                    ctx.moveTo(5, 5);
+                    ctx.lineTo(5, c.height - 5);
+                    ctx.lineTo(c.width - 5, c.height - 5);
+                    ctx.stroke();
+
+                    ctx.strokeStyle = "#1020A0"
+                    var x = 10;
+                    var y = (max - data[0]) * vscale + 10;
+                    ctx.moveTo(x, y);
+                    for (var i = 1; i < data.length; i++) {
+                        x += hstep;
+                        y = (max - data[i]) * vscale + 10;
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                </script>
+                <script src="/lib/chart.js/dist/Chart.js"></script>
+                <script>
+                    var ratesData = [@ratesDynamicAsString];
+                    var labels = $("td.label").map(function(index, element){
+                        return element.innerText;
+                    }).toArray();
+                    var ctx = document.getElementById("myChart");
+                    var myChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: '',
+                                data: ratesData
+                            }]
+                        }
+                    });
+                </script>
+            </div>
+        }
+        <div class="col-md-3 text-left">
+            <!-- Форма выбора валюты и диапазона дат. -->
+            <form action="Dynamic" method="post">
+            <div class="form-group">
+                <label for="code">Валюта:</label>
+                <select class="custom-select" id="code" name="code">
+                    @foreach (var item in @Model.Currencies)
+                    {
+                        @if (item.Code == Model.Currency?.Code)
+                        {
+                            <option value="@item.Code" selected>@item.Name</option>
+                        }
+                        else
+                        {
+                            <option value="@item.Code">@item.Name</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="startDate">От:</label>
+                <input type="text" class="form-control" id="startDate" name="startDate" placeholder="дд.мм.гггг" value='@Model.StartDate.ToString("d")'>
+            </div>
+            <div class="form-group">
+                <label for="endDate">До:</label>
+                <input type="text" class="form-control" id="endDate" name="endDate" placeholder="дд.мм.гггг" value='@Model.EndDate.ToString("d")'>
+            </div>
+            <div class="text-right">
+                <button type="submit" class="btn btn-primary">OK</button>
+            </div>
+            </form>
+        </div>
+    </div>
+</div>
